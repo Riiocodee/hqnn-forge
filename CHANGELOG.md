@@ -536,7 +536,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `examples/benchmark_rydberg_features.py` uses a pairwise-summation bound for constant
   columns, preserving small real variation in large-mean raw features, and records columns
-  only centred despite nonzero computed variance in each result line (#664)
+  only centred despite nonzero computed variance in each result line (#682)
 - `examples/benchmark_rydberg_features.py`: `check_writable()` applies Windows' limit of 255
   UTF-16 code units per filename when `os.pathconf` is unavailable, so a long output
   filename is refused, or probed with a short prefix, instead of failing (#650, #657)
