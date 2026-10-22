@@ -1759,21 +1759,29 @@ def standardise_features(features: npt.ArrayLike, fit_rows: RowArray) -> FloatAr
 
     Constant columns
     ----------------
-    NumPy uses pairwise summation only when the reduced axis is contiguous.
-    Its implementation recursively splits long sums and combines bounded
-    leaf blocks, so the mean's rounding error grows as ``log2(n) ε |μ_j|``
-    plus a fixed leaf-block contribution (``ε = 2⁻⁵²``).  We allow
-    ``(2 ceil(log2(n)) + 16) ε |μ_j|`` for that error, the division by
-    ``n``, and subtraction rounding.  The variance sum contributes about
-    ``n ε σ_j²``, so a computed variance at or below
-    ``n ε σ_j² + ((2 ceil(log2(n)) + 16) ε |μ_j|)²`` is treated as
-    constant.  The fitting columns are copied as contiguous rows before
-    computing both statistics, making NumPy use its pairwise path even when
-    ``fitted`` itself is strided or has another memory order.  The
-    logarithmic mean term is tighter than the ``(n ε |μ_j|)²`` term of
-    scikit-learn's ``StandardScaler``.  A column below the bound is only
-    centred: scaled instead, its rounding noise could become a feature of
-    unit variance.
+    The fitting columns are copied as rows, so their sums run along a
+    contiguous axis, where NumPy sums pairwise: blocks of at most 128
+    values, each summed with eight interleaved accumulators that are then
+    combined pairwise, plus a remainder of up to 7 values added one at a
+    time; the blocks are combined pairwise.  A value thus enters at most
+    ``k = 24 + max(0, ceil(log2(n/128)))`` additions, each with relative
+    error at most ``ε/2`` (``ε = 2⁻⁵²``), and the division by ``n`` adds
+    one more rounding, so the computed mean is off by at most about
+    ``δ = (k + 1)(ε/2)|μ_j|`` for values near ``μ_j``.  For every
+    ``n ≥ 2`` this is at most
+    ``2 ceil(log2(n)) ε |μ_j|``: up to 128 rows by direct count (closest at
+    ``n = 127``, 25 against 28), and above that because
+    ``k + 1 ≤ ceil(log2(n)) + 18 ≤ 4 ceil(log2(n))``.  The code retains an
+    additional safety allowance of ``16 ε |μ_j|``, so its mean-error bound is
+    ``(2 ceil(log2(n)) + 16) ε |μ_j|``.  A mean off by ``δ`` adds
+    ``δ²`` to the computed variance; the sum of squares keeps the
+    conservative ``n ε σ_j²`` term.  A column whose computed variance is
+    at most ``n ε σ_j² + ((2 ceil(log2(n)) + 16) ε |μ_j|)²`` is treated
+    as constant.  For values this close to the mean, ``x - mean`` is exact
+    by Sterbenz's lemma, so the factor 2 does not pay for subtraction
+    rounding.  This is tighter than the ``(n ε |μ_j|)²`` term of
+    scikit-learn's ``StandardScaler``.  Scaled instead, its rounding noise
+    could become a feature of unit variance.
 
     Parameters
     ----------

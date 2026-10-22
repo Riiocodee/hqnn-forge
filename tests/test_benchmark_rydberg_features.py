@@ -2721,11 +2721,18 @@ class TestStandardiseFeatures:
         features = values[:, None]
         assert 0 < values.std() < rows.size * np.finfo(np.float64).eps * abs(values.mean())
         assert values.var() <= (rows.size * np.finfo(np.float64).eps * values.mean()) ** 2
-        # The former bound centred this column and left its standard deviation near 1e-4.
-        assert (values - values.mean()).std() < 1e-3
         result = bench.standardise_features(features, rows)
         np.testing.assert_allclose(result.std(), 1.0, rtol=1e-12)
         assert bench._centred_constant_columns(features, rows) == []
+
+    def test_the_column_means_are_summed_pairwise(self) -> None:
+        # 5000 copies of one float64 next to a second column: summed row by row,
+        # the mean of column 0 is off by about 1.8e-5, above the pairwise bound,
+        # and the column would be scaled to -1 instead of only centred.
+        rows = np.arange(5000)
+        features = np.column_stack([np.full(rows.size, 1e9 + 1 / 3), rows.astype(float)])
+        result = bench.standardise_features(features, rows)
+        np.testing.assert_array_equal(result[:, 0], 0.0)
 
     def test_large_mean_float64_neighbours_are_only_centred_and_reported(self) -> None:
         rows = np.arange(5000)
@@ -2760,6 +2767,10 @@ class TestStandardiseFeatures:
 
     def test_rows_outside_the_fit_change_no_other_row(self) -> None:
         split, features, fit_rows = _collapsed(0.01)
+        features = features.copy()
+        scale = np.array([0.125, 0.0625, 0.03125, 0.015625])
+        signs = 2 * (np.arange(fit_rows.size) % 2) - 1
+        features[fit_rows] = 0.5 + signs[:, None] * scale
         before = bench.standardise_features(features, fit_rows)
         # Synthetic, validation and test rows: none of them is a fitting row.
         outside = np.setdiff1d(np.arange(features.shape[0]), fit_rows)
@@ -2768,10 +2779,9 @@ class TestStandardiseFeatures:
         changed[outside] = 0.5 + 7.0 * (changed[outside] - 0.5)
         after = bench.standardise_features(changed, fit_rows)
         np.testing.assert_array_equal(after[fit_rows], before[fit_rows])
-        mean, std = features[fit_rows].mean(axis=0), features[fit_rows].std(axis=0)
-        np.testing.assert_allclose(
-            after[outside], (changed[outside] - mean) / std, rtol=1e-12, atol=3e-14
-        )
+        columns = np.ascontiguousarray(features[fit_rows].T)
+        mean, std = columns.mean(axis=1), columns.std(axis=1)
+        np.testing.assert_allclose(after[outside], (changed[outside] - mean) / std, rtol=1e-12)
         assert np.abs(after[outside] - before[outside]).max() > 1.0
         # A fitting row does enter: the same change there moves every row.
         changed = features.copy()
