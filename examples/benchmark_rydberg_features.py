@@ -1771,15 +1771,13 @@ def standardise_features(features: npt.ArrayLike, fit_rows: RowArray) -> FloatAr
     ``n ≥ 2`` this is at most
     ``2 ceil(log2(n)) ε |μ_j|``: up to 128 rows by direct count (closest at
     ``n = 127``, 25 against 28), and above that because
-    ``k + 1 ≤ ceil(log2(n)) + 18 ≤ 4 ceil(log2(n))``.  The code retains an
-    additional safety allowance of ``16 ε |μ_j|``, so its mean-error bound is
-    ``(2 ceil(log2(n)) + 16) ε |μ_j|``.  A mean off by ``δ`` adds
-    ``δ²`` to the computed variance; the sum of squares keeps the
-    conservative ``n ε σ_j²`` term.  A column whose computed variance is
-    at most ``n ε σ_j² + ((2 ceil(log2(n)) + 16) ε |μ_j|)²`` is treated
-    as constant.  For values this close to the mean, ``x - mean`` is exact
-    by Sterbenz's lemma, so the factor 2 does not pay for subtraction
-    rounding.  This is tighter than the ``(n ε |μ_j|)²`` term of
+    ``k + 1 ≤ ceil(log2(n)) + 18 ≤ 4 ceil(log2(n))``.  A mean off by
+    ``δ`` adds ``δ²`` to the computed variance; the sum of squares keeps
+    the conservative ``n ε σ_j²`` term.  For values this close to the mean,
+    ``x - mean`` is exact by Sterbenz's lemma, so the subtraction adds no
+    rounding term.  A column whose computed variance is at most
+    ``n ε σ_j² + (2 ceil(log2(n)) ε |μ_j|)²`` is treated as constant.
+    This is tighter than the ``(n ε |μ_j|)²`` term of
     scikit-learn's ``StandardScaler``.  Scaled instead, its rounding noise
     could become a feature of unit variance.
 
@@ -1829,7 +1827,7 @@ def _standardisation_stats(
     mean = columns.mean(axis=1)
     var = columns.var(axis=1)
     depth = math.ceil(math.log2(n)) if n > 1 else 0
-    mean_error = (2 * depth + 16) * eps * mean
+    mean_error = 2 * depth * eps * mean
     constant = var <= n * eps * var + mean_error**2
     return mean, var, constant
 

@@ -1743,7 +1743,7 @@ class TestInputs:
         written out so they depend on no random stream or summation order:
         a σ of about ``1e-16``, not 0, and a variance (about ``1e-32``) below
         the rounding bound of :func:`standardise_features`
-        (``((2 ceil(log2(n)) + 16) ε μ)² ≈ 1.1e-28`` for 150 rows).
+        (``(2 ceil(log2(n)) ε μ)² ≈ 3e-29`` for 150 rows).
         The other three columns, standardised, span a plane plus a direction
         of variance ``2.4e-5``, so with three components the third is that
         small direction.  The rounding noise, scaled to unit variance by the
@@ -2818,7 +2818,7 @@ class TestStandardiseFeatures:
         """
         ½ and ½ ± one unit in the last place (2⁻⁵³): a computed variance of
         about 8e-33, below the rounding bound
-        ``((2 ceil(log2(n)) + 16) ε |μ|)² ≈ 1.3e-29`` for
+        ``(2 ceil(log2(n)) ε |μ|)² ≈ 3.2e-30`` for
         150 rows, so the column is only centred, as scikit-learn's
         ``StandardScaler`` treats it; divided by its σ it would be ±1.2.
         """
