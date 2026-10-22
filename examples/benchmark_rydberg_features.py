@@ -1759,19 +1759,21 @@ def standardise_features(features: npt.ArrayLike, fit_rows: RowArray) -> FloatAr
 
     Constant columns
     ----------------
-    With pairwise summation, each value enters at most ``ceil(log2(n))``
-    additions.  Each addition has relative error at most ``ε/2`` for
-    ``ε = 2⁻⁵²``, so summing values near ``μ_j`` and dividing by ``n``
-    gives mean error of about ``ceil(log2(n)) ε |μ_j|``.  We use twice
-    that scale to allow for the division and subtraction rounding.  The
-    variance sum has a relative error of about ``n ε``; thus the computed
-    variance is treated as constant when it is at most
-    ``n ε σ_j² + (2 ceil(log2(n)) ε |μ_j|)²``.  NumPy's pairwise sum
-    requires the summed axis to be contiguous, so the fitting columns are
-    copied as rows before computing their means and variances.  This is
-    tighter than the ``(n ε |μ_j|)²`` term of scikit-learn's
-    ``StandardScaler``.  A column below the bound is only centred: scaled
-    instead, its rounding noise could become a feature of unit variance.
+    NumPy uses pairwise summation only when the reduced axis is contiguous.
+    Its implementation recursively splits long sums and combines bounded
+    leaf blocks, so the mean's rounding error grows as ``log2(n) ε |μ_j|``
+    plus a fixed leaf-block contribution (``ε = 2⁻⁵²``).  We allow
+    ``(2 ceil(log2(n)) + 16) ε |μ_j|`` for that error, the division by
+    ``n``, and subtraction rounding.  The variance sum contributes about
+    ``n ε σ_j²``, so a computed variance at or below
+    ``n ε σ_j² + ((2 ceil(log2(n)) + 16) ε |μ_j|)²`` is treated as
+    constant.  The fitting columns are copied as contiguous rows before
+    computing both statistics, making NumPy use its pairwise path even when
+    ``fitted`` itself is strided or has another memory order.  The
+    logarithmic mean term is tighter than the ``(n ε |μ_j|)²`` term of
+    scikit-learn's ``StandardScaler``.  A column below the bound is only
+    centred: scaled instead, its rounding noise could become a feature of
+    unit variance.
 
     Parameters
     ----------
@@ -1819,7 +1821,8 @@ def _standardisation_stats(
     mean = columns.mean(axis=1)
     var = columns.var(axis=1)
     depth = math.ceil(math.log2(n)) if n > 1 else 0
-    constant = var <= n * eps * var + (2 * depth * eps * mean) ** 2
+    mean_error = (2 * depth + 16) * eps * mean
+    constant = var <= n * eps * var + mean_error**2
     return mean, var, constant
 
 
