@@ -533,6 +533,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same way (#651)
 
 ### Fixed
+- `examples/benchmark.py` refuses `--max-rows` below 2, `--folds` below 2, `--qubits` below 2,
+  and `--epochs`, `--layers` or `--seeds` below 1 with a usage error before any data is loaded,
+  instead of failing later with a traceback (#661, #669)
 - `examples/benchmark_rydberg_features.py --prune-cache` refuses a `--cache-dir` that is not an
   existing directory instead of creating it and reporting an empty prune, says why when the
   code digest is unavailable, and ignores every other option (an invalid `--patience` no longer
